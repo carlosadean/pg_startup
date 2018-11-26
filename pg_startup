@@ -1,0 +1,92 @@
+#!/bin/bash
+#
+# chkconfig: 2345 85 15
+# description: Starts and stops the PostgreSQL database server
+
+# Source function library.
+if [ -f /etc/rc.d/functions ];
+then
+    . /etc/init.d/functions
+fi
+
+VERSION=9.3
+NAME=postgresql-${VERSION}
+LOCKFILE=/var/lock/subsys/$NAME
+
+# PostgreSQL Service script for Linux
+
+start()
+{
+	echo $"Starting PostgreSQL ${VERSION}: "
+	su -s /bin/sh - postgres -c "LD_LIBRARY_PATH=/data/PostgreSQL/${VERSION}/lib:$LD_LIBRARY_PATH /data/PostgreSQL/${VERSION}/bin/pg_ctl -w start -D \"/data/PostgreSQL/${VERSION}/data\" -l \"/data/PostgreSQL/${VERSION}/data/pg_log/startup.log\""
+	
+	if [ $? -eq 0 ];
+	then
+		touch $LOCKFILE
+		echo "PostgreSQL ${VERSION} started successfully"
+                exit 0
+	else
+		echo "PostgreSQL ${VERSION} did not start in a timely fashion, please see /data/PostgreSQL/${VERSION}/data/pg_log/startup.log for details"
+                exit 1
+	fi
+}
+
+stop()
+{
+	echo $"Stopping PostgreSQL ${VERSION}: "
+	su -s /bin/sh - postgres -c "LD_LIBRARY_PATH=/data/PostgreSQL/${VERSION}/lib:$LD_LIBRARY_PATH /data/PostgreSQL/${VERSION}/bin/pg_ctl stop -m fast -w -D \"/data/PostgreSQL/${VERSION}/data\""
+	if [ $? -eq 0 ];
+        then
+                rm -f $LOCKFILE
+        fi
+}
+
+restart()
+{
+	echo $"Restarting PostgreSQL ${VERSION}: "
+	su -s /bin/sh - postgres -c "LD_LIBRARY_PATH=/data/PostgreSQL/${VERSION}/lib:$LD_LIBRARY_PATH /data/PostgreSQL/${VERSION}/bin/pg_ctl -w restart -D \"/data/PostgreSQL/${VERSION}/data\" -l \"/data/PostgreSQL/${VERSION}/data/pg_log/startup.log\" -m fast"
+	
+	if [ $? -eq 0 ];
+	then
+		touch $LOCKFILE
+		echo "PostgreSQL ${VERSION} restarted successfully"
+                exit 0
+	else
+		echo "PostgreSQL ${VERSION} did not start in a timely fashion, please see /data/PostgreSQL/${VERSION}/data/pg_log/startup.log for details"
+                exit 1
+	fi
+}
+
+reload()
+{
+	echo $"Reloading PostgreSQL ${VERSION} "
+	su -s /bin/sh - postgres -c "LD_LIBRARY_PATH=/data/PostgreSQL/${VERSION}/lib:$LD_LIBRARY_PATH /data/PostgreSQL/${VERSION}/bin/pg_ctl reload -D \"/data/PostgreSQL/${VERSION}/data\""
+}
+
+# See how we were called.
+case "$1" in
+  start)
+        start
+        ;;
+  stop)
+        stop
+        ;;
+  restart)
+        restart
+        ;;
+  reload)
+	reload
+	;;
+  condrestart)
+        if [ -f "/data/PostgreSQL/${VERSION}/data/postmaster.pid" ]; then
+            restart
+        fi
+        ;;
+  status)
+        su -s /bin/sh - postgres -c "LD_LIBRARY_PATH=/data/PostgreSQL/${VERSION}/lib:$LD_LIBRARY_PATH /data/PostgreSQL/${VERSION}/bin/pg_ctl status -D \"/data/PostgreSQL/${VERSION}/data\""
+        ;;
+  *)
+        echo $"Usage: /data/PostgreSQL/${VERSION}/installer/server/startupcfg.sh {start|stop|restart|condrestart|status}"
+        exit 1
+esac
+
